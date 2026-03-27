@@ -5,8 +5,6 @@ import {
   useContext,
   ReactNode,
   useEffect,
-  useState,
-  useCallback,
 } from "react";
 import { useChat as useAIChat } from "@ai-sdk/react";
 import { Message } from "ai";
@@ -34,11 +32,12 @@ export function ChatProvider({
   initialMessages = [],
 }: ChatContextProps & { children: ReactNode }) {
   const { fileSystem, handleToolCall } = useFileSystem();
-  const [input, setInput] = useState("");
 
   const {
     messages,
-    sendMessage,
+    input,
+    handleInputChange,
+    handleSubmit,
     status,
   } = useAIChat({
     api: "/api/chat",
@@ -51,21 +50,6 @@ export function ChatProvider({
       handleToolCall(toolCall);
     },
   });
-
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value),
-    []
-  );
-
-  const handleSubmit = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      if (!input.trim()) return;
-      sendMessage({ role: "user", content: input });
-      setInput("");
-    },
-    [input, sendMessage]
-  );
 
   // Track anonymous work
   useEffect(() => {

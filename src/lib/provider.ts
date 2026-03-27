@@ -1,17 +1,17 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import type {
-  LanguageModelV2,
-  LanguageModelV2StreamPart,
-  LanguageModelV2CallOptions,
+import {
+  LanguageModelV1,
+  LanguageModelV1StreamPart,
+  LanguageModelV1Message,
 } from "@ai-sdk/provider";
 
 const MODEL = "claude-haiku-4-5";
 
-export class MockLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = "v2" as const;
+export class MockLanguageModel implements LanguageModelV1 {
+  readonly specificationVersion = "v1" as const;
   readonly provider = "mock";
   readonly modelId: string;
-  readonly supportedUrls: Record<string, RegExp[]> = {};
+  readonly defaultObjectGenerationMode = "tool" as const;
 
   constructor(modelId: string) {
     this.modelId = modelId;
@@ -21,12 +21,14 @@ export class MockLanguageModel implements LanguageModelV2 {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  private extractUserPrompt(messages: LanguageModelV2CallOptions["prompt"]): string {
+  private extractUserPrompt(messages: LanguageModelV1Message[]): string {
+    // Find the last user message
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i];
       if (message.role === "user") {
         const content = message.content;
         if (Array.isArray(content)) {
+          // Extract text from content parts
           const textParts = content
             .filter((part: any) => part.type === "text")
             .map((part: any) => part.text);
@@ -39,10 +41,23 @@ export class MockLanguageModel implements LanguageModelV2 {
     return "";
   }
 
+  private getLastToolResult(messages: LanguageModelV1Message[]): any {
+    // Find the last tool message
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "tool") {
+        const content = messages[i].content;
+        if (Array.isArray(content) && content.length > 0) {
+          return content[0];
+        }
+      }
+    }
+    return null;
+  }
+
   private async *generateMockStream(
-    messages: LanguageModelV2CallOptions["prompt"],
+    messages: LanguageModelV1Message[],
     userPrompt: string
-  ): AsyncGenerator<LanguageModelV2StreamPart> {
+  ): AsyncGenerator<LanguageModelV1StreamPart> {
     // Count tool messages to determine which step we're on
     const toolMessageCount = messages.filter((m) => m.role === "tool").length;
 
@@ -59,18 +74,20 @@ export class MockLanguageModel implements LanguageModelV2 {
       componentName = "Card";
     }
 
-    yield { type: "stream-start", warnings: [] };
-
     // Step 1: Create component file
     if (toolMessageCount === 1) {
       const text = `I'll create a ${componentName} component for you.`;
-      yield { type: "text-delta", id: "t1", delta: text };
+      for (const char of text) {
+        yield { type: "text-delta", textDelta: char };
+        await this.delay(25);
+      }
 
       yield {
         type: "tool-call",
+        toolCallType: "function",
         toolCallId: `call_1`,
         toolName: "str_replace_editor",
-        input: JSON.stringify({
+        args: JSON.stringify({
           command: "create",
           path: `/components/${componentName}.jsx`,
           file_text: this.getComponentCode(componentType),
@@ -80,20 +97,28 @@ export class MockLanguageModel implements LanguageModelV2 {
       yield {
         type: "finish",
         finishReason: "tool-calls",
-        usage: { inputTokens: 50, outputTokens: 30, totalTokens: 80 },
+        usage: {
+          promptTokens: 50,
+          completionTokens: 30,
+        },
       };
       return;
     }
 
     // Step 2: Enhance component
     if (toolMessageCount === 2) {
-      yield { type: "text-delta", id: "t2", delta: `Now let me enhance the component with better styling.` };
+      const text = `Now let me enhance the component with better styling.`;
+      for (const char of text) {
+        yield { type: "text-delta", textDelta: char };
+        await this.delay(25);
+      }
 
       yield {
         type: "tool-call",
+        toolCallType: "function",
         toolCallId: `call_2`,
         toolName: "str_replace_editor",
-        input: JSON.stringify({
+        args: JSON.stringify({
           command: "str_replace",
           path: `/components/${componentName}.jsx`,
           old_str: this.getOldStringForReplace(componentType),
@@ -104,20 +129,28 @@ export class MockLanguageModel implements LanguageModelV2 {
       yield {
         type: "finish",
         finishReason: "tool-calls",
-        usage: { inputTokens: 50, outputTokens: 30, totalTokens: 80 },
+        usage: {
+          promptTokens: 50,
+          completionTokens: 30,
+        },
       };
       return;
     }
 
     // Step 3: Create App.jsx
     if (toolMessageCount === 0) {
-      yield { type: "text-delta", id: "t3", delta: `This is a static response. You can place an Anthropic API key in the .env file to use the Anthropic API for component generation. Let me create an App.jsx file to display the component.` };
+      const text = `This is a static response. You can place an Anthropic API key in the .env file to use the Anthropic API for component generation. Let me create an App.jsx file to display the component.`;
+      for (const char of text) {
+        yield { type: "text-delta", textDelta: char };
+        await this.delay(15);
+      }
 
       yield {
         type: "tool-call",
+        toolCallType: "function",
         toolCallId: `call_3`,
         toolName: "str_replace_editor",
-        input: JSON.stringify({
+        args: JSON.stringify({
           command: "create",
           path: "/App.jsx",
           file_text: this.getAppCode(componentName),
@@ -127,20 +160,35 @@ export class MockLanguageModel implements LanguageModelV2 {
       yield {
         type: "finish",
         finishReason: "tool-calls",
-        usage: { inputTokens: 50, outputTokens: 30, totalTokens: 80 },
+        usage: {
+          promptTokens: 50,
+          completionTokens: 30,
+        },
       };
       return;
     }
 
     // Step 4: Final summary (no tool call)
     if (toolMessageCount >= 3) {
-      const text = `Perfect! I've created:\n\n1. **${componentName}.jsx** - A fully-featured ${componentType} component\n2. **App.jsx** - The main app file that displays the component\n\nThe component is now ready to use. You can see the preview on the right side of the screen.`;
-      yield { type: "text-delta", id: "t4", delta: text };
+      const text = `Perfect! I've created:
+
+1. **${componentName}.jsx** - A fully-featured ${componentType} component
+2. **App.jsx** - The main app file that displays the component
+
+The component is now ready to use. You can see the preview on the right side of the screen.`;
+
+      for (const char of text) {
+        yield { type: "text-delta", textDelta: char };
+        await this.delay(30);
+      }
 
       yield {
         type: "finish",
         finishReason: "stop",
-        usage: { inputTokens: 50, outputTokens: 50, totalTokens: 100 },
+        usage: {
+          promptTokens: 50,
+          completionTokens: 50,
+        },
       };
       return;
     }
@@ -375,50 +423,64 @@ export default function App() {
   }
 
   async doGenerate(
-    options: LanguageModelV2CallOptions
-  ): Promise<Awaited<ReturnType<LanguageModelV2["doGenerate"]>>> {
+    options: Parameters<LanguageModelV1["doGenerate"]>[0]
+  ): Promise<Awaited<ReturnType<LanguageModelV1["doGenerate"]>>> {
     const userPrompt = this.extractUserPrompt(options.prompt);
 
-    const parts: LanguageModelV2StreamPart[] = [];
-    for await (const part of this.generateMockStream(options.prompt, userPrompt)) {
+    // Collect all stream parts
+    const parts: LanguageModelV1StreamPart[] = [];
+    for await (const part of this.generateMockStream(
+      options.prompt,
+      userPrompt
+    )) {
       parts.push(part);
     }
 
+    // Build response from parts
     const textParts = parts
       .filter((p) => p.type === "text-delta")
-      .map((p) => (p as any).delta)
+      .map((p) => (p as any).textDelta)
       .join("");
 
     const toolCalls = parts
       .filter((p) => p.type === "tool-call")
       .map((p) => ({
-        type: "tool-call" as const,
+        toolCallType: "function" as const,
         toolCallId: (p as any).toolCallId,
         toolName: (p as any).toolName,
-        input: (p as any).input,
+        args: (p as any).args,
       }));
 
+    // Get finish reason from finish part
     const finishPart = parts.find((p) => p.type === "finish") as any;
-
-    const content: ReturnType<LanguageModelV2["doGenerate"]> extends Promise<infer R> ? R["content"] : never = [
-      ...(textParts ? [{ type: "text" as const, text: textParts }] : []),
-      ...toolCalls,
-    ];
+    const finishReason = finishPart?.finishReason || "stop";
 
     return {
-      content,
-      finishReason: (finishPart?.finishReason ?? "stop") as any,
-      usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
+      text: textParts,
+      toolCalls,
+      finishReason: finishReason as any,
+      usage: {
+        promptTokens: 100,
+        completionTokens: 200,
+      },
+      warnings: [],
+      rawCall: {
+        rawPrompt: options.prompt,
+        rawSettings: {
+          maxTokens: options.maxTokens,
+          temperature: options.temperature,
+        },
+      },
     };
   }
 
   async doStream(
-    options: LanguageModelV2CallOptions
-  ): Promise<Awaited<ReturnType<LanguageModelV2["doStream"]>>> {
+    options: Parameters<LanguageModelV1["doStream"]>[0]
+  ): Promise<Awaited<ReturnType<LanguageModelV1["doStream"]>>> {
     const userPrompt = this.extractUserPrompt(options.prompt);
     const self = this;
 
-    const stream = new ReadableStream<LanguageModelV2StreamPart>({
+    const stream = new ReadableStream<LanguageModelV1StreamPart>({
       async start(controller) {
         try {
           const generator = self.generateMockStream(options.prompt, userPrompt);
@@ -432,7 +494,15 @@ export default function App() {
       },
     });
 
-    return { stream };
+    return {
+      stream,
+      warnings: [],
+      rawCall: {
+        rawPrompt: options.prompt,
+        rawSettings: {},
+      },
+      rawResponse: { headers: {} },
+    };
   }
 }
 

@@ -1,31 +1,64 @@
+# Workflow name shown in the GitHub Actions UI
 name: Claude Code
 
+# Events that can start this workflow
 on:
+  # Triggers when a new comment is posted on an issue or PR conversation
   issue_comment:
     types: [created]
+  # Triggers when a new inline code review comment is posted on a PR diff
   pull_request_review_comment:
     types: [created]
+  # Triggers when a full PR review is submitted (approve/request changes/comment)
   pull_request_review:
     types: [submitted]
+  # Triggers when an issue is opened or assigned
   issues:
     types: [opened, assigned]
 
+  # Optional auto-review trigger (commented): uncomment to run on every PR update.
+  # pull_request:
+  #   types: [opened, synchronize, reopened, ready_for_review]
+
+# Jobs to run when one of the events above occurs
 jobs:
+  # Single job that runs Claude Code Action
   claude:
+    # Extra guard: only run when the body/title contains "@claude"
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    # Runner image used for this job
     runs-on: ubuntu-latest
+    # Minimum permissions Claude needs to read/write PRs, issues, and code changes
     permissions:
       contents: write
       pull-requests: write
       issues: write
       actions: read
       id-token: write
+    # Ordered steps executed by the runner
     steps:
+      # Step 1: clone repository so Claude can inspect and modify files if needed
       - uses: actions/checkout@v6
+      # Step 2: run Claude Code GitHub Action
       - uses: anthropics/claude-code-action@v1
         with:
+          # Auth method: Anthropic API key stored as a GitHub Actions secret
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Optional: add a custom prompt for stricter automated review rules.If omitted, Claude runs its default review checks/heuristics.
+          # prompt: |
+          #   Review this PR with production-risk focus:
+          #   1) Functional bugs and regressions.
+          #   2) Security/auth/permission issues and input validation gaps.
+          #   3) Data safety risks (migrations, schema changes, destructive operations).
+          #   4) Missing tests for changed behavior.
+          #   5) Significant performance risks only.
+          #   Output:
+          #   - Findings first, highest severity first.
+          #   - Include file paths and concrete fix suggestions.
+          #   - If no critical issues, say "No critical issues found" and list test gaps.
+          # Example PR comment for one-off focus:
+          #   @claude review this PR focusing on auth edge cases and migration safety.

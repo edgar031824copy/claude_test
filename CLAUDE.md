@@ -91,5 +91,3 @@ The system prompt (`src/lib/prompts/generation.tsx`) instructs Claude to:
 - Use Tailwind CSS for all styling
 - Use `@/` path imports for cross-file references
 - Keep chat responses brief; put all code in tool calls
-
-add in this just test claude githb integration

@@ -5,6 +5,9 @@
       "Skill(claude-api)"
     ]
   },
+  "enabledMcpjsonServers": [
+    "github"
+  ],
   "hooks": {
     "PreToolUse": [
       {
@@ -17,5 +20,6 @@
         ]
       }
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true
 }

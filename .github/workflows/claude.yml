@@ -27,7 +27,7 @@ jobs:
     # Extra guard: only run when the body/title contains "@claude"
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     # Runner image used for this job
@@ -42,7 +42,7 @@ jobs:
     # Ordered steps executed by the runner
     steps:
       # Step 1: clone repository so Claude can inspect and modify files if needed
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       # Step 2: run Claude Code GitHub Action
       - uses: anthropics/claude-code-action@v1
         with:

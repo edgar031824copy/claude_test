@@ -15,6 +15,7 @@ npx prisma studio      # Visual DB browser
 ```
 
 Run a single test file:
+
 ```bash
 npx vitest run src/path/to/file.test.ts
 ```
@@ -47,6 +48,7 @@ Chat Input → POST /api/chat → streamText() with tools
 **Virtual File System** (`src/lib/file-system.ts`): All generated files live in memory — no disk writes. The `FileSystemContext` (`src/lib/contexts/file-system-context.tsx`) manages CRUD operations and exposes `handleToolCall()` to apply AI tool results.
 
 **AI Tools** (`src/lib/tools/`):
+
 - `str_replace.ts` — replaces a string in an existing file (like sed)
 - `file-manager.ts` — creates, renames, deletes files in the virtual FS
 
@@ -73,6 +75,7 @@ JWT stored in an httpOnly cookie (`auth-token`, 7-day TTL). `getSession()` in `s
 ### State Management
 
 Two React contexts wrap the entire app:
+
 - `FileSystemProvider` — virtual file system state + editor selected file
 - `ChatProvider` — wraps `useChat` from `@ai-sdk/react`, bridges tool call events to `FileSystemContext`
 
@@ -83,6 +86,7 @@ Split-pane layout (via `react-resizable-panels`): Chat (35% left) | Preview/Code
 ### AI Prompt Conventions
 
 The system prompt (`src/lib/prompts/generation.tsx`) instructs Claude to:
+
 - Always use `/App.jsx` as the component entry point
 - Use Tailwind CSS for all styling
 - Use `@/` path imports for cross-file references

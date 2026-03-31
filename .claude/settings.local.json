@@ -2,9 +2,11 @@
   "permissions": {
     "allow": [
       "Skill(update-config)",
-      "Skill(claude-api)"
+      "Skill(claude-api)",
+      "mcp__github__list_pull_requests"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "github"
   ],
@@ -20,6 +22,5 @@
         ]
       }
     ]
-  },
-  "enableAllProjectMcpServers": true
+  }
 }

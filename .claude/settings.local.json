@@ -3,7 +3,13 @@
     "allow": [
       "Skill(update-config)",
       "Skill(claude-api)",
-      "mcp__github__list_pull_requests"
+      "mcp__github__list_pull_requests",
+      "mcp__github__get_pull_request",
+      "mcp__github__get_pull_request_comments",
+      "mcp__github__get_pull_request_reviews",
+      "Bash(git push*)",
+      "Bash(git commit*)",
+      "Bash(git add*)"
     ]
   },
   "enableAllProjectMcpServers": true,
